@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lacak Service HP - Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tracking-step {
+            position: relative;
+        }
+        
+        .tracking-step::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 40px;
+            bottom: -20px;
+            width: 2px;
+            background: #e5e7eb;
+        }
+        
+        .tracking-step.completed::before {
+            background: #10b981;
+        }
+        
+        .tracking-step.active::before {
+            background: linear-gradient(to bottom, #10b981 50%, #e5e7eb 50%);
+        }
+        
+        .tracking-step:last-child::before {
+            display: none;
+        }
+        
+        .step-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .step-completed {
+            background: #10b981;
+            color: white;
+        }
+        
+        .step-active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .step-pending {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <div class="text-center">
+                <div class="text-4xl mb-3">📱</div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">Lacak Service HP</h1>
+                <p class="text-gray-600 text-sm">Masukkan nomor HP dan tanggal service untuk melacak status</p>
+            </div>
+        </div>
+
+        <!-- Search Form -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <form id="trackingForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 text-sm font-medium mb-2">
+                            Nomor HP
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="phoneNumber"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="08123456789"
+                            required
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 text-sm font-medium mb-2">
+                            Tanggal Service
+                        </label>
+                        <input 
+                            type="date" 
+                            id="serviceDate"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            required
+                        >
+                    </div>
+                </div>
+                <button 
+                    type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <span id="searchText">🔍 Lacak Service</span>
+                    <span id="loadingText" class="hidden">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Mencari...
+                    </span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" style="display: none;">
+            <!-- Service Info Card -->
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+                <div id="serviceInfo">
+                    <!-- Service info will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Tracking Timeline -->
+            <div class="bg-white rounded-2xl shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-6">Status Tracking</h3>
+                <div id="trackingTimeline">
+                    <!-- Timeline will be displayed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Panel removed -->
+
+        <!-- Not Found Section -->
+        <div id="notFoundSection" class="bg-white rounded-2xl shadow-sm p-6 text-center" style="display: none;">
+            <div class="text-4xl mb-4">❌</div>
+            <h3 class="text-xl font-semibold text-gray-800 mb-3">Service Tidak Ditemukan</h3>
+            <p class="text-gray-600 mb-6">Tidak ada data service dengan nomor HP dan tanggal yang Anda masukkan.</p>
+            <div class="bg-blue-50 rounded-xl p-4 mb-6">
+                <h4 class="font-medium text-blue-800 mb-2">💡 Pastikan:</h4>
+                <ul class="text-blue-700 text-sm text-left space-y-1">
+                    <li>• Nomor HP yang dimasukkan benar</li>
+                    <li>• Tanggal service sesuai dengan nota</li>
+                    <li>• Hubungi toko jika masih bermasalah</li>
+                </ul>
+            </div>
+            <button onclick="resetForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl">
+                🔄 Coba Lagi
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8">
+            <p class="text-gray-500 text-sm">© 2024 Service HP Management System</p>
+        </div>
+    </div>
+
+    <script>
+        // Sample service data with tracking steps
+        const serviceData = [
+            {
+                id: 'SRV001',
+                phone: '08123456789',
+                date: '2024-12-01',
+                customerName: 'Budi Santoso',
+                deviceType: 'iPhone 12 Pro',
+                problem: 'Layar pecah dan tidak bisa touch',
+                technician: 'Teknisi Ahmad',
+                estimatedCost: 850000,
+                isPaid: false,
+                currentStep: 2,
+                steps: [
+                    { title: 'HP Diterima', desc: 'HP telah diterima dan dicatat', time: '01 Des 2024, 09:00', completed: true },
+                    { title: 'Diagnosa', desc: 'Sedang dilakukan pengecekan kerusakan', time: '01 Des 2024, 10:30', completed: true },
+                    { title: 'Dalam Proses', desc: 'Menunggu spare part dari supplier', time: '02 Des 2024, 14:00', completed: false, active: true },
+                    { title: 'Selesai', desc: 'HP siap diambil', time: '', completed: false }
+                ]
+            },
+            {
+                id: 'SRV002',
+                phone: '08987654321',
+                date: '2024-12-02',
+                customerName: 'Siti Nurhaliza',
+                deviceType: 'Samsung Galaxy S21',
+                problem: 'Baterai cepat habis',
+                technician: 'Teknisi Budi',
+                estimatedCost: 450000,
+                isPaid: true,
+                currentStep: 4,
+                steps: [
+                    { title: 'HP Diterima', desc: 'HP telah diterima dan dicatat', time: '02 Des 2024, 08:30', completed: true },
+                    { title: 'Diagnosa', desc: 'Kerusakan pada baterai', time: '02 Des 2024, 09:15', completed: true },
+                    { title: 'Dalam Proses', desc: 'Penggantian baterai', time: '02 Des 2024, 11:00', completed: true },
+                    { title: 'Selesai', desc: 'HP siap diambil', time: '03 Des 2024, 16:00', completed: true, active: true }
+                ]
+            },
+            {
+                id: 'SRV003',
+                phone: '08111222333',
+                date: '2024-12-03',
+                customerName: 'Andi Wijaya',
+                deviceType: 'Xiaomi Redmi Note 10',
+                problem: 'Tidak bisa charging',
+                technician: 'Teknisi Citra',
+                estimatedCost: 200000,
+                isPaid: false,
+                currentStep: 1,
+                steps: [
+                    { title: 'HP Diterima', desc: 'HP telah diterima dan dicatat', time: '03 Des 2024, 13:00', completed: true },
+                    { title: 'Diagnosa', desc: 'Sedang pengecekan port charging', time: '03 Des 2024, 14:00', completed: false, active: true },
+                    { title: 'Dalam Proses', desc: 'Perbaikan akan dimulai', time: '', completed: false },
+                    { title: 'Menunggu Pembayaran', desc: 'Service selesai, menunggu pembayaran', time: '', completed: false },
+                    { title: 'Selesai', desc: 'HP siap diambil', time: '', completed: false }
+                ]
+            }
+        ];
+
+        // Handle form submission
+        document.getElementById('trackingForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const serviceDate = document.getElementById('serviceDate').value;
+
+            // Show loading state
+            showLoading(true);
+
+            // Try to fetch from backend API first
+            try {
+                // call the new track endpoint which is optimized for phone+date
+                const trackUrl = `/api/services/track?phone=${encodeURIComponent(phoneNumber)}&date=${encodeURIComponent(serviceDate)}`;
+                const resp = await fetch(trackUrl);
+                if (!resp.ok) throw new Error('API returned ' + resp.status);
+                const json = await resp.json();
+                const list = (json && json.success && Array.isArray(json.data)) ? json.data : [];
+                const suggestions = (json && Array.isArray(json.suggestions)) ? json.suggestions : [];
+                // store api list and suggestions for later
+                window.currentApiServices = list;
+                window.currentApiSuggestions = suggestions;
+                // keep last fetched API list globally so displayResult can use it for suggestions
+                window.currentApiServices = list;
+
+                const normInput = normalizePhone(phoneNumber);
+                const dateYMD = normalizeDateToYMD(serviceDate);
+
+                // If backend returned a matching row, use it
+                showLoading(false);
+                if (list && list.length > 0) {
+                    // Aggregate all returned services into a single card
+                    const container = document.getElementById('resultSection');
+                    container.style.display = 'block';
+                    container.innerHTML = '';
+                    const shapedList = list.map(row => {
+                        const s = row.steps ? row : normalizeDbServiceRow(row);
+                        s._source = 'API';
+                        return s;
+                    });
+
+                    const aggNode = createAggregatedNode(shapedList);
+                    container.appendChild(aggNode);
+                    container.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+
+                // If not found in backend results, fallback to local sample data for suggestions
+                const fallbackResult = findServiceInList(serviceData, phoneNumber, serviceDate);
+                if (fallbackResult) {
+                    fallbackResult._source = 'Local';
+                    displayResult(fallbackResult);
+                    return;
+                }
+
+                // Not found anywhere: show suggestions from backend list or local data
+                showLoading(false);
+                // Not found: show not-found and use backend suggestions if any
+                displayResult(null);
+                // if backend provided suggestions, render them in the not-found hint area
+                const notFoundSection = document.getElementById('notFoundSection');
+                const hintElId = 'notFoundHint';
+                let hintEl = document.getElementById(hintElId);
+                if (!hintEl) {
+                    hintEl = document.createElement('div');
+                    hintEl.id = hintElId;
+                    hintEl.className = 'text-sm text-gray-600 mt-4';
+                    notFoundSection.appendChild(hintEl);
+                }
+                if (suggestions && suggestions.length > 0) {
+                    const dates = suggestions.map(d => normalizeDateToYMD(d));
+                    hintEl.innerHTML = `Namun kami menemukan service untuk nomor ini pada tanggal: <strong>${dates.join(', ')}</strong>. Periksa kembali tanggal input.`;
+                    // also provide clickable buttons
+                    const listWrap = document.createElement('div');
+                    listWrap.className = 'mt-2 flex flex-wrap gap-2 justify-center';
+                    suggestions.map(d => normalizeDateToYMD(d)).forEach(dt => {
+                        const btn = document.createElement('button');
+                        btn.className = 'bg-gray-100 hover:bg-gray-200 text-sm px-3 py-2 rounded-full';
+                        btn.textContent = dt;
+                        btn.onclick = function() { applySuggestedDate(dt); };
+                        listWrap.appendChild(btn);
+                    });
+                    hintEl.appendChild(listWrap);
+                }
+            } catch (err) {
+                // API failed - fallback to local sample data
+                console.warn('Failed to fetch services from API, falling back to local data:', err);
+                const result = findServiceInList(serviceData, phoneNumber, serviceDate);
+                showLoading(false);
+                displayResult(result);
+            }
+        });
+
+        function showLoading(isLoading) {
+            const searchText = document.getElementById('searchText');
+            const loadingText = document.getElementById('loadingText');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            
+            if (isLoading) {
+                searchText.classList.add('hidden');
+                loadingText.classList.remove('hidden');
+                submitBtn.disabled = true;
+            } else {
+                searchText.classList.remove('hidden');
+                loadingText.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        }
+
+        function normalizePhone(p) {
+            if (!p) return '';
+            let v = String(p).replace(/\D/g, ''); // remove non-digits
+            // handle leading country code 62 -> convert to 0-prefixed for comparison
+            if (v.startsWith('62')) v = '0' + v.slice(2);
+            if (v.startsWith('+62')) v = '0' + v.slice(3);
+            return v;
+        }
+
+        // Find a service object inside a provided list by normalized phone + date
+        function findServiceInList(list, phone, date) {
+            if (!Array.isArray(list)) return null;
+            const normInput = normalizePhone(phone);
+            return list.find(service => {
+                // support both schema variants (customer_phone/service_date) and (phone/date)
+                const storedPhone = service.customer_phone || service.phone || service.phone_number || '';
+                const storedDate = service.service_date || service.date || '';
+                const normStored = normalizePhone(storedPhone);
+                const storedYMD = normalizeDateToYMD(storedDate);
+                return normStored === normInput && storedYMD === date;
+            }) || null;
+        }
+
+        function findServicesByPhoneInList(list, phone) {
+            if (!Array.isArray(list)) return [];
+            const normInput = normalizePhone(phone);
+            return list.filter(service => {
+                const storedPhone = service.customer_phone || service.phone || service.phone_number || '';
+                return normalizePhone(storedPhone) === normInput;
+            });
+        }
+
+        function normalizeDateToYMD(d) {
+            if (!d) return '';
+            // If already in YYYY-MM-DD or ISO starting with YYYY-MM-DD
+            if (typeof d === 'string') {
+                const m = d.match(/^(\d{4}-\d{2}-\d{2})/);
+                if (m) return m[1];
+            }
+            // Try Date parsing
+            const dt = new Date(d);
+            if (!isNaN(dt)) {
+                return dt.toISOString().slice(0, 10);
+            }
+            return '';
+        }
+
+        // Convert a flat DB service row into the richer format used by the UI
+        function normalizeDbServiceRow(row) {
+            if (!row) return null;
+            const isPaid = (row.payment_status || '').toLowerCase().includes('sudah') || (row.payment_status || '').toLowerCase().includes('lunas') || row.isPaid === true;
+            const id = row.id || row.ID || row.id_service || 'N/A';
+            const customerName = row.customer_name || row.name || '';
+            const deviceType = row.service_type || row.deviceType || '';
+            const problem = row.notes || row.problem || '';
+            const technician = row.technician || '';
+            const estimatedCost = Number(row.price || row.estimatedCost || 0);
+            const date = row.service_date || row.date || '';
+
+            // Synthesize a basic steps timeline
+            const steps = [
+                { title: 'HP Diterima', desc: 'HP telah diterima dan dicatat', time: date ? `${formatDateForTimeline(date)}, 09:00` : '', completed: true },
+                { title: 'Diagnosa', desc: 'Sedang dilakukan pengecekan kerusakan', time: date ? `${formatDateForTimeline(date)}, 10:30` : '', completed: !isPaid },
+                { title: 'Dalam Proses', desc: 'Perbaikan sedang dilakukan', time: '', completed: isPaid },
+                // removed 'Pembayaran Lunas' step per UX request
+                { title: 'Selesai', desc: 'HP siap diambil', time: isPaid ? `${formatDateForTimeline(date)}, 16:00` : '', completed: isPaid, active: isPaid }
+            ];
+
+            return {
+                id: String(id),
+                phone: row.customer_phone || row.phone || row.phone_number || '',
+                date: date,
+                customerName,
+                deviceType,
+                problem,
+                technician,
+                estimatedCost,
+                isPaid,
+                currentStep: isPaid ? steps.length : 2,
+                steps,
+                _source: row._source || 'API'
+            };
+        }
+
+        function formatDateForTimeline(dateStr) {
+            // if dateStr is YYYY-MM-DD, convert to 'DD Mon YYYY'
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            if (isNaN(d)) return dateStr;
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function displayResult(service) {
+            const resultSection = document.getElementById('resultSection');
+            const notFoundSection = document.getElementById('notFoundSection');
+            
+            if (service) {
+                // Hide not found section
+                notFoundSection.style.display = 'none';
+                
+                // Show service info
+                // If this is a flat DB row (from API), normalize to expected object
+                const shaped = service.steps ? service : normalizeDbServiceRow(service);
+                displayServiceInfo(shaped);
+
+                // Show tracking timeline
+                displayTrackingTimeline(shaped);
+                
+                // Show result section
+                resultSection.style.display = 'block';
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                // Hide result section
+                resultSection.style.display = 'none';
+                
+                // Show not found section
+                notFoundSection.style.display = 'block';
+                // show suggestions if phone exists with different dates
+                const phone = document.getElementById('phoneNumber').value;
+                const hintElId = 'notFoundHint';
+                let hintEl = document.getElementById(hintElId);
+                if (!hintEl) {
+                    hintEl = document.createElement('div');
+                    hintEl.id = hintElId;
+                    hintEl.className = 'text-sm text-gray-600 mt-4';
+                    notFoundSection.appendChild(hintEl);
+                }
+
+                // Try suggestions from last fetched API list first
+                const apiMatches = (window.currentApiServices && Array.isArray(window.currentApiServices)) ?
+                    findServicesByPhoneInList(window.currentApiServices, phone) : [];
+
+                const localMatches = findServicesByPhoneInList(serviceData, phone);
+
+                const combined = (apiMatches.length ? apiMatches : localMatches).map(m => ({
+                    date: normalizeDateToYMD(m.service_date || m.date || m.dateString || ''),
+                    raw: m
+                })).filter(x => x.date);
+
+                if (combined.length > 0) {
+                    // render clickable suggestions
+                    hintEl.innerHTML = '<div>Namun kami menemukan service untuk nomor ini pada tanggal:</div>';
+                    const listWrap = document.createElement('div');
+                    listWrap.className = 'mt-2 flex flex-wrap gap-2 justify-center';
+                    combined.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.className = 'bg-gray-100 hover:bg-gray-200 text-sm px-3 py-2 rounded-full';
+                        btn.textContent = item.date;
+                        btn.onclick = function() { applySuggestedDate(item.date); };
+                        listWrap.appendChild(btn);
+                    });
+                    hintEl.appendChild(listWrap);
+                } else {
+                    hintEl.innerHTML = '';
+                }
+                notFoundSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function applySuggestedDate(dateStr) {
+            const input = document.getElementById('serviceDate');
+            input.value = dateStr;
+            // auto submit
+            document.getElementById('trackingForm').dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+
+        // Create a DOM node for a service (info card + timeline)
+        function createServiceNode(service) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bg-white rounded-2xl shadow-sm p-6 mb-6';
+
+            // Info container
+            const infoDiv = document.createElement('div');
+            // reuse displayServiceInfo by rendering into a temp container
+            const tempInfo = document.createElement('div');
+            displayServiceInfoToElement(service, tempInfo);
+            infoDiv.appendChild(tempInfo);
+
+            // Timeline container
+            const timelineDiv = document.createElement('div');
+            timelineDiv.className = 'mt-4';
+            const tempTimeline = document.createElement('div');
+            displayTrackingTimelineToElement(service, tempTimeline);
+            timelineDiv.appendChild(tempTimeline);
+
+            wrapper.appendChild(infoDiv);
+            wrapper.appendChild(timelineDiv);
+            return wrapper;
+        }
+
+                // Format number to Indonesian currency
+                function formatCurrency(v) {
+                    const n = Number(v) || 0;
+                    return 'Rp ' + n.toLocaleString('id-ID');
+                }
+
+                // Create a single aggregated node from an array of service objects
+                function createAggregatedNode(services) {
+                    // services: array of shaped service objects (normalized)
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'bg-white rounded-2xl shadow-sm p-6 mb-6';
+
+                    // Header: customer / phone / date
+                    const first = services[0];
+                    const phone = first.phone || '';
+                    const customerName = first.customerName || '';
+                    const date = normalizeDateToYMD(first.date || first.service_date || '');
+
+                    const headerHtml = `
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-800">${customerName || '-'} • ${phone}</h2>
+                                <p class="text-gray-600">Tanggal service: ${date || '-'}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500">Total layanan: <strong>${services.length}</strong></div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Build services table
+                    const tableWrap = document.createElement('div');
+                    tableWrap.className = 'overflow-x-auto mt-4';
+                    const table = document.createElement('table');
+                    table.className = 'w-full text-sm';
+                    table.innerHTML = `
+                        <thead>
+                            <tr class="text-left text-xs text-gray-500">
+                                <th class="pb-2">No</th>
+                                <th class="pb-2">Layanan / Sku</th>
+                                <th class="pb-2">Keterangan</th>
+                                <th class="pb-2">Biaya</th>
+                                <th class="pb-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+
+                    const tbody = table.querySelector('tbody');
+                    let totalPrice = 0;
+                    let totalPaid = 0; // derive from payment_status if available
+
+                    services.forEach((s, idx) => {
+                        const price = Number(s.estimatedCost || s.price || 0);
+                        totalPrice += price;
+                        const paid = /lunas|sudah|paid/i.test(String(s.payment_status || '')) || s.isPaid === true;
+                        if (paid) totalPaid += price;
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="py-2 align-top">${idx + 1}</td>
+                            <td class="py-2 align-top">${s.deviceType || s.service_type || '-'}${s.service_stock_sku ? ' (' + s.service_stock_sku + ')' : ''}</td>
+                            <td class="py-2 align-top">${s.problem || s.notes || '-'}</td>
+                            <td class="py-2 align-top">${formatCurrency(price)}</td>
+                            <td class="py-2 align-top">${paid ? '<span class="text-green-700">Lunas</span>' : '<span class="text-orange-700">Belum</span>'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    tableWrap.appendChild(table);
+
+                    // Totals area
+                    const totalsHtml = `
+                        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div class="p-3 bg-gray-50 rounded-xl">
+                                <div class="text-gray-600">Total Biaya</div>
+                                <div class="font-semibold text-gray-800">${formatCurrency(totalPrice)}</div>
+                            </div>
+                            <div class="p-3 bg-gray-50 rounded-xl">
+                                <div class="text-gray-600">Total Dibayar</div>
+                                <div class="font-semibold text-gray-800">${formatCurrency(totalPaid)}</div>
+                            </div>
+                            <div class="p-3 bg-gray-50 rounded-xl">
+                                <div class="text-gray-600">Sisa</div>
+                                <div class="font-semibold text-gray-800">${formatCurrency(totalPrice - totalPaid)}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Timeline: choose to render combined timeline - if any service is unpaid, show 'in progress' state
+                    const anyUnpaid = services.some(s => !(/lunas|sudah|paid/i.test(String(s.payment_status || '')) || s.isPaid === true));
+                    const combinedService = Object.assign({}, first, {
+                        id: first.id || ('MULTI-' + Date.now()),
+                        customerName: customerName,
+                        phone: phone,
+                        date: date,
+                        estimatedCost: totalPrice,
+                        isPaid: !anyUnpaid,
+                        steps: first.steps || [
+                            { title: 'HP Diterima', desc: 'HP telah diterima dan dicatat', time: date ? `${formatDateForTimeline(date)}, 09:00` : '', completed: true },
+                            { title: 'Diagnosa', desc: 'Sedang dilakukan pengecekan kerusakan', time: date ? `${formatDateForTimeline(date)}, 10:30` : '', completed: !anyUnpaid },
+                            { title: 'Dalam Proses', desc: 'Perbaikan sedang dilakukan', time: '', completed: !anyUnpaid },
+                            { title: 'Selesai', desc: 'HP siap diambil', time: !anyUnpaid ? `${formatDateForTimeline(date)}, 16:00` : '', completed: !anyUnpaid, active: !anyUnpaid }
+                        ]
+                    });
+
+                    // Assemble wrapper
+                    wrapper.innerHTML = headerHtml;
+                    wrapper.appendChild(tableWrap);
+                    wrapper.insertAdjacentHTML('beforeend', totalsHtml);
+
+                    // Timeline section
+                    const tlDiv = document.createElement('div');
+                    tlDiv.className = 'mt-6';
+                    const tlInner = document.createElement('div');
+                    displayTrackingTimelineToElement(combinedService, tlInner);
+                    tlDiv.appendChild(tlInner);
+                    wrapper.appendChild(tlDiv);
+
+                    return wrapper;
+                }
+        // Helper: render service info into a provided element (similar to displayServiceInfo)
+        function displayServiceInfoToElement(service, el) {
+            const statusBadge = service.isPaid ?
+                '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">✅ Selesai</span>' :
+                '<span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">⏳ Dalam Proses Service</span>';
+            const sourceNote = service._source ? `<div class="text-xs text-gray-500">Sumber: ${service._source}</div>` : '';
+            el.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">${service.id}</h2>
+                        <p class="text-gray-600">${service.customerName}</p>
+                    </div>
+                    ${statusBadge}
+                </div>
+                ${sourceNote}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Device:</span>
+                            <span class="font-medium">${service.deviceType}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Teknisi:</span>
+                            <span class="font-medium">${service.technician}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Biaya:</span>
+                            <span class="font-medium">Rp ${service.estimatedCost.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Masalah:</span>
+                            <span class="font-medium">${service.problem}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Helper: render timeline into provided element
+        function displayTrackingTimelineToElement(service, el) {
+            const originalTimeline = document.getElementById('trackingTimeline');
+            // render into temporary element using existing logic adapted
+            const steps = service.steps.map(s => Object.assign({}, s));
+            if (service.isPaid) {
+                steps.forEach((s, i) => {
+                    s.completed = true;
+                    s.active = false;
+                });
+                if (steps.length > 0) steps[steps.length - 1].active = true;
+            } else {
+                steps.forEach(s => {
+                    if (/(Pembayaran|Menunggu Pembayaran)/i.test(s.title)) {
+                        s.completed = s.completed === true;
+                        if (/Menunggu Pembayaran/i.test(s.title)) s.completed = false;
+                    }
+                });
+            }
+
+            let timelineHTML = '';
+            steps.forEach((step, index) => {
+                let stepClass = 'tracking-step';
+                let iconClass = 'step-icon step-pending';
+                let icon = index + 1;
+
+                if (step.completed) {
+                    stepClass += ' completed';
+                    iconClass = 'step-icon step-completed';
+                    icon = '✓';
+                } else if (step.active) {
+                    stepClass += ' active';
+                    iconClass = 'step-icon step-active';
+                }
+
+                timelineHTML += `
+                    <div class="${stepClass} flex items-start space-x-4 pb-8">
+                        <div class="${iconClass}">
+                            ${icon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-sm font-medium text-gray-900">${step.title}</h4>
+                                ${step.time ? `<span class="text-xs text-gray-500">${step.time}</span>` : ''}
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">${step.desc}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            el.innerHTML = timelineHTML;
+        }
+
+        function displayServiceInfo(service) {
+            const serviceInfo = document.getElementById('serviceInfo');
+            const statusBadge = service.isPaid ? 
+                '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">✅ Selesai</span>' :
+                '<span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">⏳ Dalam Proses Service</span>';
+            const sourceNote = service._source ? `<div class="text-xs text-gray-500">Sumber: ${service._source}</div>` : '';
+
+            serviceInfo.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">${service.id}</h2>
+                        <p class="text-gray-600">${service.customerName}</p>
+                    </div>
+                    ${statusBadge}
+                </div>
+                ${sourceNote}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Device:</span>
+                            <span class="font-medium">${service.deviceType}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Teknisi:</span>
+                            <span class="font-medium">${service.technician}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Biaya:</span>
+                            <span class="font-medium">Rp ${service.estimatedCost.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Masalah:</span>
+                            <span class="font-medium">${service.problem}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayTrackingTimeline(service) {
+            const timeline = document.getElementById('trackingTimeline');
+            let timelineHTML = '';
+            // Make a shallow copy of steps to avoid mutating original data
+            const steps = service.steps.map(s => Object.assign({}, s));
+
+            if (service.isPaid) {
+                // If payment is complete, mark all steps as completed and set last step active
+                steps.forEach((s, i) => {
+                    s.completed = true;
+                    s.active = false;
+                });
+                if (steps.length > 0) {
+                    steps[steps.length - 1].active = true;
+                }
+            } else {
+                // If not paid, ensure payment-related steps are not marked as completed
+                steps.forEach(s => {
+                    if (/(Pembayaran|Menunggu Pembayaran)/i.test(s.title)) {
+                        // keep existing completed/active unless explicitly set in data; make sure 'Menunggu Pembayaran' is not completed
+                        s.completed = s.completed === true;
+                        if (/Menunggu Pembayaran/i.test(s.title)) s.completed = false;
+                    }
+                });
+            }
+
+            steps.forEach((step, index) => {
+                let stepClass = 'tracking-step';
+                let iconClass = 'step-icon step-pending';
+                let icon = index + 1;
+
+                if (step.completed) {
+                    stepClass += ' completed';
+                    iconClass = 'step-icon step-completed';
+                    icon = '✓';
+                } else if (step.active) {
+                    stepClass += ' active';
+                    iconClass = 'step-icon step-active';
+                }
+
+                timelineHTML += `
+                    <div class="${stepClass} flex items-start space-x-4 pb-8">
+                        <div class="${iconClass}">
+                            ${icon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-sm font-medium text-gray-900">${step.title}</h4>
+                                ${step.time ? `<span class="text-xs text-gray-500">${step.time}</span>` : ''}
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">${step.desc}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            timeline.innerHTML = timelineHTML;
+        }
+
+        function resetForm() {
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('notFoundSection').style.display = 'none';
+            document.getElementById('trackingForm').reset();
+            document.getElementById('phoneNumber').focus();
+        }
+
+        // Auto-focus on phone number input
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('phoneNumber').focus();
+        });
+
+        // Format phone number input
+        document.getElementById('phoneNumber').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 13) {
+                value = value.slice(0, 13);
+            }
+            e.target.value = value;
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97bc7b09708944c3',t:'MTc1NzMxMzkwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

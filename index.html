@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Service HP Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            /* Circuit-style IC traces as SVG tiled pattern + subtle gradient overlay (no external background image) */
+            background-color: #071124; /* deep navy base */
+            background-image: linear-gradient(180deg, rgba(6,38,68,0.55), rgba(3,18,32,0.6)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='100%' height='100%' fill='none'/><g fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='1'><path d='M8 20 H592'/><path d='M8 68 H592'/><path d='M8 116 H592'/><path d='M8 164 H592'/><path d='M8 212 H592'/><path d='M8 260 H592'/><path d='M8 308 H592'/><path d='M8 356 H592'/><path d='M60 0 V400'/><path d='M120 0 V400'/><path d='M180 0 V400'/><circle cx='60' cy='20' r='3' fill='%23ffffff' fill-opacity='0.06'/><circle cx='120' cy='68' r='3' fill='%23ffffff' fill-opacity='0.06'/><circle cx='180' cy='116' r='3' fill='%23ffffff' fill-opacity='0.06'/></g></svg>");
+            background-repeat: repeat;
+            background-size: 600px 400px;
+            background-position: center center;
+        }
+        
+        .glass-effect {
+            /* slightly translucent so background image shows through */
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            backdrop-filter: blur(6px);
+            position: relative; /* allow absolute children like close button */
+        }
+        
+        /* Simple fade transition */
+        .fade-out {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.5s ease-in-out;
+        }
+        
+        .fade-in {
+            opacity: 1;
+            transform: scale(1);
+            transition: all 0.5s ease-in-out;
+        }
+        
+        .slide-up {
+            transform: translateY(20px);
+            opacity: 0;
+            animation: slideUp 0.6s ease-out forwards;
+        }
+        
+        @keyframes slideUp {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 4px solid #ff6b6b;
+        }
+        
+        .menu-item.active {
+            background: rgba(255, 107, 107, 0.15);
+            border-left: 4px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-proses { background: #cce7ff; color: #0066cc; }
+        .status-selesai { background: #d4edda; color: #155724; }
+        .status-batal { background: #f8d7da; color: #721c24; }
+        .status-aktif { background: #d4edda; color: #155724; }
+        .status-tidak-aktif { background: #f8d7da; color: #721c24; }
+        
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .role-super-admin { background: #ffe4e1; color: #d63384; border: 1px solid #ff6b6b; }
+        .role-admin { background: #e0f7fa; color: #00695c; border: 1px solid #4ecdc4; }
+        .role-user { background: #e3f2fd; color: #1565c0; border: 1px solid #45b7d1; }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+            /* Darken overlay on small screens for contrast; keep SVG circuit-only background */
+            .gradient-bg { background-image: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.45)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='100%' height='100%' fill='none'/><g fill='none' stroke='%23ffffff' stroke-opacity='0.06' stroke-width='1'><path d='M8 20 H592'/><path d='M8 68 H592'/><path d='M8 116 H592'/><path d='M8 164 H592'/><path d='M8 212 H592'/><path d='M8 260 H592'/><path d='M8 308 H592'/><path d='M8 356 H592'/><path d='M60 0 V400'/><path d='M120 0 V400'/><path d='M180 0 V400'/><circle cx='60' cy='20' r='3' fill='%23ffffff' fill-opacity='0.06'/><circle cx='120' cy='68' r='3' fill='%23ffffff' fill-opacity='0.06'/><circle cx='180' cy='116' r='3' fill='%23ffffff' fill-opacity='0.06'/></g></svg>"); }
+        }
+
+        /* Logo image sizing on login */
+        #login-page img, #loginContainer img { max-width: 96px; max-height: 96px; object-fit: contain; }
+        /* Ensure login and forgot-password containers are centered reliably */
+        #loginContainer {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Force the forgot-password overlay to occupy the viewport and center its card
+           This avoids side-aligned layouts caused by surrounding markup. */
+        #forgotPasswordForm {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 60;
+            background: rgba(7,17,36,0.35); /* subtle overlay to focus the card */
+        }
+
+        /* Ensure the card inside forgot overlay is scrollable on small screens */
+        #forgotPasswordForm .glass-effect {
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+        }
+
+        /* Compact variant for the reset-confirm step to avoid scrolling on small screens */
+        #forgotPasswordForm .glass-effect.compact-reset {
+            max-height: none;
+            overflow: visible;
+            padding: 12px 14px;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        #forgotPasswordForm .glass-effect.compact-reset h1 {
+            font-size: 1.125rem; /* slightly smaller */
+            margin-bottom: 6px;
+        }
+
+        #forgotPasswordForm .glass-effect.compact-reset .text-6xl {
+            font-size: 28px;
+            margin-bottom: 4px;
+        }
+
+        #resetConfirmForm label { font-size: 0.82rem; }
+        #resetConfirmForm input { padding: 0.55rem 0.75rem; font-size: 0.95rem; }
+        #resetConfirmForm .btn-compact { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+
+        /* Make inputs in compact reset view narrower and centered for better visual balance */
+        #forgotPasswordForm .glass-effect.compact-reset #resetConfirmForm {
+            display: block;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #forgotPasswordForm .glass-effect.compact-reset #resetConfirmForm input[type="text"],
+        #forgotPasswordForm .glass-effect.compact-reset #resetConfirmForm input[type="email"],
+        #forgotPasswordForm .glass-effect.compact-reset #resetConfirmForm input[type="password"] {
+            max-width: 320px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid #e6eef8;
+            box-shadow: 0 2px 6px rgba(14,45,89,0.04);
+            border-radius: 10px;
+        }
+
+        #forgotPasswordForm .glass-effect.compact-reset #resetConfirmForm input:focus {
+            outline: none;
+            border-color: #2b6cb0;
+            box-shadow: 0 6px 18px rgba(59,130,246,0.12);
+        }
+
+        /* Compact button styles used in reset confirm form */
+        .btn-compact {
+            padding-top: 0.45rem; /* 7.2px */
+            padding-bottom: 0.45rem;
+            padding-left: 0.9rem;
+            padding-right: 0.9rem;
+            font-size: 0.875rem; /* slightly smaller */
+            border-radius: 0.5rem;
+            min-width: 3.25rem;
+        }
+        @media (max-width: 420px) {
+            /* Stack buttons on very small screens */
+            .btn-row { flex-direction: column; gap: 0.5rem; }
+            .btn-row button { width: 100%; }
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen" id="login-page">
+
+    
+    <!-- Login Container -->
+    <div id="loginContainer" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <div class="glass-effect rounded-2xl p-8 w-full max-w-md relative z-10">
+            <!-- Close / back button -->
+            
+            <!-- Logo & Title -->
+            <div class="text-center mb-8">
+                                <div class="w-15 h-15 flex items-center justify-center">
+                                        <!-- inline circuit emblem (SVG) to match the background; avoids external image -->
+                                        <img src="../img/helpdesk.png" alt="">
+                                </div>
+                <h1 class="text-2xl font-bold text-gray-800">Service HP</h1>
+                <p class="text-gray-600 text-sm">Management System</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-6">
+                <!-- Username Field -->
+                <div class="space-y-2">
+                    <label for="username" class="block text-gray-700 text-sm font-medium">
+                        Username
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-400">👤</span>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username"
+                            class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent"
+                            placeholder="Masukkan username"
+                            required
+                        >
+                    </div>
+                </div>
+                
+                <!-- Password Field -->
+                <div class="space-y-2">
+                    <label for="password" class="block text-gray-700 text-sm font-medium">
+                        Password
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-400">🔒</span>
+                        </div>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password"
+                            class="w-full pl-10 pr-12 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent"
+                            placeholder="Masukkan password"
+                            required
+                        >
+                        <button 
+                            type="button" 
+                            onclick="togglePassword()"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <span id="eyeIcon">👁️</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Remember Me -->
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            class="w-4 h-4 text-white bg-white/20 border-white/30 rounded focus:ring-white/50 focus:ring-2"
+                        >
+                        <span class="ml-2 text-gray-600 text-sm">Ingat saya</span>
+                    </label>
+                    <a href="javascript:void(0)" onclick="showForgotPassword()" class="text-gray-600 hover:text-gray-800 text-sm transition-colors">
+                        Lupa password?
+                    </a>
+                </div>
+                
+                <!-- Login Button -->
+                <button 
+                    type="submit"
+                    class="w-full bg-blue-800 text-white font-semibold py-3 px-4 rounded-xl hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transform hover:scale-105 transition-all"
+                    style="box-shadow: 0 6px 18px rgba(11,37,64,0.32);"
+                >
+                    <span id="loginText">Login</span>
+                    <span id="loadingText" class="hidden">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Memproses...
+                    </span>
+                </button>
+            </form>
+            
+            <!-- Footer -->
+            <div class="mt-6 text-center">
+                <p class="text-gray-500 text-xs">
+                    © 2025 Service HP Management System
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Forgot Password Form -->
+    <div id="forgotPasswordForm" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style="display: none;">
+        <div class="glass-effect rounded-2xl p-8 w-full max-w-md relative z-10">
+            <!-- Logo & Title -->
+            <div class="text-center mb-8">
+                <div class="text-6xl mb-4">🔑</div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">Lupa Password</h1>
+                <p class="text-gray-600 text-sm">Masukkan email untuk reset password</p>
+            </div>
+            
+            <!-- Reset Form -->
+            <form id="resetForm" class="space-y-6">
+                <!-- Email Field -->
+                <div class="space-y-2">
+                    <label for="reset-email" class="block text-gray-700 text-sm font-medium">
+                        Email Address
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-400">📧</span>
+                        </div>
+                        <input 
+                            type="email" 
+                            id="reset-email" 
+                            name="email"
+                            class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent"
+                            placeholder="Masukkan email Anda"
+                            required
+                        >
+                    </div>
+                </div>
+                
+                <!-- Reset Button -->
+                <button 
+                    type="submit"
+                    class="w-full bg-gradient-to-r from-blue-400 to-indigo-400 text-white font-semibold py-3 px-4 rounded-xl hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-transparent transform hover:scale-105 transition-all"
+                >
+                    <span id="resetText">Kirim Link Reset</span>
+                    <span id="resetLoadingText" class="hidden">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Mengirim...
+                    </span>
+                </button>
+                
+                <!-- Back to Login -->
+                <button 
+                    type="button"
+                    onclick="showLogin()"
+                    class="w-full bg-gray-100 text-gray-700 font-semibold py-3 px-4 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 transition-all"
+                >
+                    ← Kembali ke Login
+                </button>
+            </form>
+            <!-- Confirm Reset (step 2) -->
+            <form id="resetConfirmForm" class="space-y-6 mx-auto max-w-md text-center" style="display:none;">
+               
+                <div class="space-y-2 text-center">
+                    <label for="reset-email-confirm" class="block text-gray-700 text-sm font-medium">Email</label>
+                    <input type="email" id="reset-email-confirm" class="w-full pl-3 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none" readonly />
+                </div>
+
+                <div class="space-y-2 text-center">
+                    <label for="reset-code" class="block text-gray-700 text-sm font-medium">Kode Reset</label>
+                    <input type="text" id="reset-code" class="w-full pl-3 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none" placeholder="Masukkan kode yang dikirim ke email" required />
+                    <div class="mt-2 flex items-center justify-center gap-2">
+                        <button type="button" id="resendCodeBtn" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border" onclick="resendResetCode()">Kirim Ulang Kode</button>
+                        <span id="resendCountdown" class="text-sm text-gray-500"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-center">
+                    <label for="reset-new-password" class="block text-gray-700 text-sm font-medium">Password Baru</label>
+                    <input type="password" id="reset-new-password" class="w-full pl-3 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none" placeholder="Password baru" required />
+                </div>
+
+                <div class="space-y-2 text-center">
+                    <label for="reset-new-password-confirm" class="block text-gray-700 text-sm font-medium">Ulangi Password</label>
+                    <input type="password" id="reset-new-password-confirm" class="w-full pl-3 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none" placeholder="Ulangi password baru" required />
+                </div>
+
+                <div class="flex items-center gap-3 btn-row">
+                    <button type="button" onclick="showLogin()" class="btn-compact flex-1 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 transition-all">
+                        ← Kembali
+                    </button>
+
+                    <button type="submit" class="btn-compact flex-1 bg-blue-800 text-white font-semibold rounded-xl hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                        <span id="resetConfirmText">Set Password</span>
+                        <span id="resetConfirmLoadingText" class="hidden">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Menyimpan...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+    <script>
+        // Sample user data
+        const sampleUsers = [
+            {id: 1, nama: 'Administrator', username: 'admin', email: 'admin@servicehp.com', role: 'Super Admin', status: 'Aktif', last_login: '2024-12-05 14:30'},
+            {id: 2, nama: 'Manager Operasional', username: 'manager', email: 'manager@servicehp.com', role: 'Admin', status: 'Aktif', last_login: '2024-12-05 13:15'},
+            {id: 3, nama: 'Teknisi Senior', username: 'teknisi1', email: 'teknisi1@servicehp.com', role: 'User', status: 'Aktif', last_login: '2024-12-05 12:45'},
+            {id: 4, nama: 'Customer Service', username: 'cs1', email: 'cs1@servicehp.com', role: 'User', status: 'Aktif', last_login: '2024-12-05 11:20'},
+            {id: 5, nama: 'Supervisor', username: 'supervisor', email: 'supervisor@servicehp.com', role: 'Admin', status: 'Aktif', last_login: '2024-12-04 16:30'},
+            {id: 6, nama: 'Teknisi Junior', username: 'teknisi2', email: 'teknisi2@servicehp.com', role: 'User', status: 'Tidak Aktif', last_login: '2024-12-03 09:15'},
+            {id: 7, nama: 'Owner', username: 'owner', email: 'owner@servicehp.com', role: 'Super Admin', status: 'Aktif', last_login: '2024-12-05 08:00'}
+        ];
+
+        // Toggle password visibility
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.textContent = '👁️';
+            }
+        }
+        
+        // Show forgot password form (robust: reset step visibility and ensure flex centering)
+        function showForgotPassword() {
+            const container = document.getElementById('loginContainer') || document.getElementById('login-page');
+            const forgot = document.getElementById('forgotPasswordForm');
+            // Prepare forgot form: ensure step 1 visible and step2 hidden
+            const resetForm = document.getElementById('resetForm');
+            const resetConfirm = document.getElementById('resetConfirmForm');
+            if (resetForm) resetForm.style.display = '';
+            if (resetConfirm) resetConfirm.style.display = 'none';
+
+            // Fade out the login container then show forgot overlay as flex to center
+            if (container) container.classList.add('fade-out');
+            setTimeout(() => {
+                if (container) container.style.display = 'none';
+                if (forgot) {
+                    forgot.style.display = 'flex';
+                    forgot.classList.remove('fade-out');
+                    forgot.classList.add('fade-in');
+                }
+            }, 300);
+        }
+        
+        // Show login form (reset state and remove overlays)
+        function showLogin() {
+            const forgot = document.getElementById('forgotPasswordForm');
+            if (forgot) {
+                forgot.classList.remove('fade-in');
+                forgot.classList.add('fade-out');
+            }
+            setTimeout(() => {
+                // hide forgot and reset panels
+                if (forgot) forgot.style.display = 'none';
+                const resetForm = document.getElementById('resetForm');
+                const resetConfirm = document.getElementById('resetConfirmForm');
+                if (resetForm) resetForm.style.display = '';
+                if (resetConfirm) resetConfirm.style.display = 'none';
+                // remove compact class when leaving forgot/reset flow
+                (function(){ const glass = document.querySelector('#forgotPasswordForm .glass-effect'); if (glass) glass.classList.remove('compact-reset'); })();
+
+                const container = document.getElementById('loginContainer') || document.getElementById('login-page');
+                if (container) {
+                    container.style.display = 'flex';
+                    container.classList.remove('fade-out');
+                    container.classList.add('fade-in');
+                }
+            }, 300);
+        }
+        
+        // Handle login form submission
+// Handle login form submission
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    // Show loading state (opsional)
+    // ...
+
+    try {
+        // Kirim request ke backend untuk validasi login
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            // Simpan data user (opsional: localStorage/session)
+            // Redirect ke frontend dashboard
+            window.location.href = '/frontend/index.html';
+        } else {
+            showError('Username atau password salah!');
+            // Reset loading state (opsional)
+        }
+    } catch (err) {
+        showError('Gagal login, coba lagi!');
+        // Reset loading state (opsional)
+    }
+});
+        // Handle forgot password form submission — POST to backend endpoint
+        document.getElementById('resetForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const emailEl = document.getElementById('reset-email');
+            const email = emailEl.value.trim();
+
+            // Basic client-side validation
+            if (!email) { showError('Email harus diisi!'); emailEl.focus(); return; }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) { showError('Format email tidak valid!'); emailEl.focus(); return; }
+
+            // UI: show loading state
+            const resetText = document.getElementById('resetText');
+            const resetLoadingText = document.getElementById('resetLoadingText');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            resetText.classList.add('hidden');
+            resetLoadingText.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                // Attempt to parse JSON; handle non-JSON responses gracefully
+                let data = null;
+                try { data = await resp.json(); } catch (e) { data = null; }
+
+                if (resp.ok && data && data.success) {
+                    // On success, show confirmation form (step 2) so user can enter code and new password
+                    showSuccess(data.message || 'Kode reset dan instruksi telah dikirim ke email Anda.');
+                    // Prefill email into confirmation form and toggle visibility
+                    document.getElementById('reset-email-confirm').value = email;
+                    document.getElementById('resetForm').style.display = 'none';
+                    document.getElementById('resetConfirmForm').style.display = 'block';
+                    // Make the forgot card compact to avoid scrolling on small screens
+                    (function(){ const glass = document.querySelector('#forgotPasswordForm .glass-effect'); if (glass) glass.classList.add('compact-reset'); })();
+                    // focus the code input
+                    setTimeout(() => document.getElementById('reset-code').focus(), 300);
+                } else if (resp.ok && data && !data.success) {
+                    showError(data.message || 'Gagal mengirim link reset.');
+                } else if (!resp.ok) {
+                    // server responded with an error status
+                    showServerError(resp, data);
+                } else {
+                    showError('Gagal mengirim permintaan. Silakan coba lagi.');
+                }
+            } catch (err) {
+                // Network error or server unreachable
+                console.warn('forgot-password error', err);
+                // Fallback to simulated behavior for offline/dev environments
+                showSuccess('Link reset password (simulasi) telah dikirim ke email Anda.');
+                setTimeout(() => showLogin(), 1600);
+            } finally {
+                // Reset UI state
+                resetText.classList.remove('hidden');
+                resetLoadingText.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Handle confirmation (code + new password)
+        document.getElementById('resetConfirmForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('reset-email-confirm').value;
+            const code = document.getElementById('reset-code').value.trim();
+            const pw = document.getElementById('reset-new-password').value;
+            const pw2 = document.getElementById('reset-new-password-confirm').value;
+
+            if (!code) { showError('Kode reset harus diisi'); return; }
+            if (!pw || !pw2) { showError('Password baru harus diisi'); return; }
+            if (pw.length < 6) { showError('Password minimal 6 karakter'); return; }
+            if (pw !== pw2) { showError('Password dan konfirmasi tidak sama'); return; }
+
+            const confirmText = document.getElementById('resetConfirmText');
+            const confirmLoading = document.getElementById('resetConfirmLoadingText');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            confirmText.classList.add('hidden'); confirmLoading.classList.remove('hidden'); submitBtn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code, newPassword: pw })
+                });
+                let data = null;
+                try { data = await resp.json(); } catch(e) { data = null; }
+
+                if (resp.ok && data && data.success) {
+                    showSuccess(data.message || 'Password berhasil diubah. Silakan login.');
+                    setTimeout(() => showLogin(), 1600);
+                } else if (resp.ok && data && !data.success) {
+                    showError(data.message || 'Gagal mengubah password');
+                } else if (!resp.ok) {
+                    showServerError(resp, data);
+                } else {
+                    showError('Gagal memproses permintaan.');
+                }
+            } catch (err) {
+                console.warn('reset-password error', err);
+                showError('Gagal menghubungi server.');
+            } finally {
+                confirmText.classList.remove('hidden'); confirmLoading.classList.add('hidden'); submitBtn.disabled = false;
+            }
+        });
+        
+        function resetButton() {
+            const loginText = document.getElementById('loginText');
+            const loadingText = document.getElementById('loadingText');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            
+            loginText.classList.remove('hidden');
+            loadingText.classList.add('hidden');
+            submitBtn.disabled = false;
+        }
+
+        function showDashboard() {
+            // Add fade out effect to login
+            document.getElementById('login-page').classList.add('fade-out');
+            
+            setTimeout(() => {
+                // Hide login page
+                document.getElementById('login-page').style.display = 'none';
+                
+                // Show dashboard with fade in
+                document.getElementById('dashboard-content').style.display = 'block';
+                document.getElementById('dashboard-content').classList.add('fade-in');
+                
+                // Load users table
+                loadUsersTable();
+                
+                // Reset login form
+                document.getElementById('loginForm').reset();
+                resetButton();
+            }, 500);
+        }
+
+        function logout() {
+            // Add fade out effect to dashboard
+            document.getElementById('dashboard-content').classList.add('fade-out');
+            
+            setTimeout(() => {
+                // Hide dashboard
+                document.getElementById('dashboard-content').style.display = 'none';
+                document.getElementById('dashboard-content').classList.remove('fade-in', 'fade-out');
+                
+                // Show login page with fade in
+                document.getElementById('login-page').style.display = 'block';
+                document.getElementById('login-page').classList.remove('fade-out');
+                document.getElementById('login-page').classList.add('fade-in');
+                
+                // Reset form
+                document.getElementById('loginForm').reset();
+                resetButton();
+            }, 500);
+        }
+        
+        function showError(message) {
+            // Create error notification
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 slide-up';
+            errorDiv.innerHTML = `
+                <div class="flex items-center">
+                    <span class="mr-2">❌</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(errorDiv);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 3000);
+        }
+        
+        function showSuccess(message) {
+            // Create success notification
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 slide-up';
+            successDiv.innerHTML = `
+                <div class="flex items-center">
+                    <span class="mr-2">✅</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        // Show detailed server error (status + optional JSON message) in the UI
+        function showServerError(resp, data) {
+            try {
+                const status = resp && resp.status ? resp.status : 'ERR';
+                let bodyMessage = '';
+                if (data) {
+                    if (typeof data === 'string') bodyMessage = data;
+                    else if (data.message) bodyMessage = data.message;
+                    else bodyMessage = JSON.stringify(data);
+                }
+                const msg = bodyMessage ? `Server ${status}: ${bodyMessage}` : `Server ${status}: Terjadi kesalahan.`;
+                showError(msg);
+            } catch (e) {
+                showError('Terjadi kesalahan server.');
+            }
+        }
+
+        // Resend reset code logic
+        let resendCooldown = 0;
+        let resendTimerId = null;
+
+        async function resendResetCode() {
+            const btn = document.getElementById('resendCodeBtn');
+            const countdownEl = document.getElementById('resendCountdown');
+            if (!btn || btn.disabled) return;
+
+            const email = document.getElementById('reset-email-confirm').value || document.getElementById('reset-email').value;
+            if (!email) { showError('Email tidak tersedia untuk dikirim ulang.'); return; }
+
+            try {
+                btn.disabled = true; btn.classList.add('opacity-60');
+                const resp = await fetch('/api/resend-reset-code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+                });
+                let data = null; try { data = await resp.json(); } catch(e) { data = null; }
+                if (resp.ok && data && data.success) {
+                    showSuccess(data.message || 'Kode reset telah dikirim ulang ke email Anda.');
+                    // Start cooldown only after successful server response
+                    startResendCooldown(60);
+                } else if (resp.ok && data && !data.success) {
+                    showError(data.message || 'Gagal mengirim ulang kode');
+                } else if (!resp.ok) {
+                    showServerError(resp, data);
+                } else {
+                    showError('Gagal mengirim ulang kode.');
+                }
+            } catch (err) {
+                console.warn('resend-reset-code error', err);
+                showError('Gagal menghubungi server untuk mengirim ulang kode.');
+            }
+        }
+
+        function startResendCooldown(seconds) {
+            const btn = document.getElementById('resendCodeBtn');
+            const countdownEl = document.getElementById('resendCountdown');
+            if (!btn || !countdownEl) return;
+            resendCooldown = seconds;
+            btn.disabled = true; btn.classList.add('opacity-60');
+            countdownEl.textContent = `${resendCooldown}s`;
+            if (resendTimerId) clearInterval(resendTimerId);
+            resendTimerId = setInterval(() => {
+                resendCooldown -= 1;
+                if (resendCooldown <= 0) {
+                    clearInterval(resendTimerId); resendTimerId = null;
+                    btn.disabled = false; btn.classList.remove('opacity-60'); countdownEl.textContent = '';
+                } else {
+                    countdownEl.textContent = `${resendCooldown}s`;
+                }
+            }, 1000);
+        }
+
+        // Navigation
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page-content').forEach(page => {
+                page.style.display = 'none';
+            });
+            
+            // Remove active class from all menu items
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(`page-${pageId}`).style.display = 'block';
+            
+            // Add active class to selected menu item
+            event.target.closest('.menu-item').classList.add('active');
+            
+            // Load page data
+            if (pageId === 'users') {
+                loadUsersTable();
+            }
+        }
+
+        // Load users table
+        function loadUsersTable() {
+            const tbody = document.getElementById('users-table');
+            tbody.innerHTML = '';
+            
+            sampleUsers.forEach(user => {
+                const roleClass = user.role === 'Super Admin' ? 'role-super-admin' : 
+                                user.role === 'Admin' ? 'role-admin' : 'role-user';
+                
+                const statusClass = user.status === 'Aktif' ? 'status-aktif' : 'status-tidak-aktif';
+                
+                const row = `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td class="py-4 px-6">USR${String(user.id).padStart(3, '0')}</td>
+                        <td class="py-4 px-6">${user.nama}</td>
+                        <td class="py-4 px-6">${user.username}</td>
+                        <td class="py-4 px-6">${user.email}</td>
+                        <td class="py-4 px-6"><span class="role-badge ${roleClass}">${user.role}</span></td>
+                        <td class="py-4 px-6"><span class="status-badge ${statusClass}">${user.status}</span></td>
+                        <td class="py-4 px-6">${user.last_login}</td>
+                        <td class="py-4 px-6">
+                            <div class="flex space-x-2">
+                                <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800 transition-colors">✏️</button>
+                                <button onclick="resetPassword(${user.id})" class="text-yellow-600 hover:text-yellow-800 transition-colors">🔑</button>
+                                <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800 transition-colors">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // User management functions
+        function openUserModal() {
+            showAlert('Modal tambah user akan dibuka');
+        }
+
+        function editUser(id) {
+            showAlert(`Edit user ID: ${id}`);
+        }
+
+        function resetPassword(id) {
+            showAlert(`Reset password user ID: ${id}`);
+        }
+
+        function deleteUser(id) {
+            showAlert(`Hapus user ID: ${id}`);
+        }
+
+        function showAlert(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 slide-up';
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
+
+        // Mobile menu toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const sidebar = document.getElementById('sidebar');
+            
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('open');
+                });
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'978dd97507065fdf',t:'MTc1NjgyNDkzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
